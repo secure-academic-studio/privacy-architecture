@@ -24,7 +24,7 @@ If a claim on our site or in the architecture document isn't backed by something
 
 ## Repository status
 
-This repository is being populated incrementally. The table below is the target structure; items not yet present are marked accordingly.
+All modules planned for the initial release are now in place. Future additions (new mechanisms, or updates following changes in production) will appear here first as 🔜 before being filled in.
 
 | Status | Path | Substantiates | What it proves |
 |---|---|---|---|
@@ -38,9 +38,9 @@ This repository is being populated incrementally. The table below is the target 
 | ✅ | `deletion-lifecycle/on-demand-erasure.js` | [§3.2.3](https://secureacademic.com/gdpr-architectural-background/#sec-3-2) Five-Layer Deletion Guarantee, Layer 3 | Ownership-checked, user-triggered deletion with an automatic multi-attempt retry sweep. |
 | ✅ | `deletion-lifecycle/orphan-sweeper.js` | [§3.2.4](https://secureacademic.com/gdpr-architectural-background/#sec-3-2) Five-Layer Deletion Guarantee, Layer 4 | The hourly cron that clears any file left behind by a client-side failure. |
 | ✅ | `media-integrity-check/mediaIntegrityCheck.js` | *Not yet in the public doc* | A dependency-free container/format sniffer that rejects a renamed video masquerading as audio before it reaches the AI pipeline — an additional server-side gate not currently described on the site; we intend to add it to the architecture document. |
-| 🔜 | `client-side/canvas-pixel-redaction.js` | [§4.1](https://secureacademic.com/gdpr-architectural-background/#sec-4-1) Client-Side Pixel Destruction | Redactions are burned into canvas pixels in the browser before the original PDF is discarded. |
-| 🔜 | `client-side/html-tokenization.js` | [§5.2](https://secureacademic.com/gdpr-architectural-background/#sec-5-2) HTML Tokenisation | Structural HTML tags are replaced with tokens client-side before content is uploaded. |
-| 🔜 | `client-side/sau-encryption.js` | [§5.1](https://secureacademic.com/gdpr-architectural-background/#sec-5-1) AES-GCM Encrypted .SAU Session File | Key derivation (PBKDF2) and AES-256-GCM encrypt/decrypt, entirely in the browser via the Web Crypto API. |
+| ✅ | `client-side/canvas-pixel-redaction.js` | [§4.1](https://secureacademic.com/gdpr-architectural-background/#sec-4-1) / [§4.2](https://secureacademic.com/gdpr-architectural-background/#sec-4-2) Client-Side Pixel Destruction + Audit Payload ZIP | Redactions are burned into canvas pixels in the browser before the original PDF is discarded; the Audit ZIP is pixel-identical to what is actually submitted. |
+| ✅ | `client-side/html-tokenization.js` | [§5.2](https://secureacademic.com/gdpr-architectural-background/#sec-5-2) HTML Tokenisation | Structural HTML tags are replaced with tokens client-side before content is uploaded. |
+| ✅ | `client-side/sau-encryption.js` | [§5.1](https://secureacademic.com/gdpr-architectural-background/#sec-5-1) AES-GCM Encrypted .SAU Session File | Key derivation (PBKDF2) and AES-256-GCM encrypt/decrypt, entirely in the browser via the Web Crypto API. |
 
 ## Verifying a claim yourself
 
