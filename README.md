@@ -29,7 +29,7 @@ This repository is being populated incrementally. The table below is the target 
 | Status | Path | Substantiates | What it proves |
 |---|---|---|---|
 | ✅ | `gdpr-compliance-guard/startup-guard.js` | [§2.1](https://secureacademic.com/gdpr-architectural-background/#sec-2-1) GDPR Compliance Guard | The server refuses to start without valid EU credentials; Vertex AI is hard-pinned to `location: 'eu'`. |
-| 🔜 | `infrastructure/gcp-organization-policy.md` | [§2.2](https://secureacademic.com/gdpr-architectural-background/#sec-2-2) Organisation-Level Resource Location Policy | The exported `gcp.resourceLocations` constraint enforced at the GCP organisation root — independent of application code. |
+| ✅ | `infrastructure/gcp-organization-policy.md` | [§2.2](https://secureacademic.com/gdpr-architectural-background/#sec-2-2) Organisation-Level Resource Location Policy | The exported `gcp.resourceLocations` constraint enforced at the GCP organisation root — independent of application code. |
 | 🔜 | `security-middleware/helmet-csp-config.js` | [§2.3](https://secureacademic.com/gdpr-architectural-background/#sec-2-3) Defence Middleware | The whitelist-based CSP, attack-pattern filter, and bot-blocking middleware. |
 | 🔜 | `security-middleware/rate-limiters.js` | [§2.4](https://secureacademic.com/gdpr-architectural-background/#sec-2-4) Rate Limiting | Per-endpoint rate-limit configuration. |
 | 🔜 | `abuse-prevention/daily-free-trial-hash.js` | [§2.5](https://secureacademic.com/gdpr-architectural-background/#sec-2-5) Account-Free Access + [privacy-policy §4.9.1](https://secureacademic.com/privacy-policy/#sec-4-9-1) | The salted SHA-256(IP + date + secret) hash used to enforce one free trial per day, its irreversibility, and its 3-day automatic deletion. |
