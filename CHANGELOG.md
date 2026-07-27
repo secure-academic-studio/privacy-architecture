@@ -4,6 +4,32 @@ Notable updates to this repository — corrections, re-verifications against pro
 
 ## 2026-07-27
 
+### Added — Layers 2 and 3 extended to the Academic Proofreader
+
+**What changed in production.** Until now the Proofreader had only part of the five-layer deletion guarantee. Layers 1, 4 and 5 already applied to it, because they are properties of the shared bucket and the shared hourly sweeper. Layers 2 and 3 did not: there was no `finally`-block safety net around the processing job, and the client-side erasure call was a single fire-and-forget `fetch` whose outcome was never checked, with no retry cycle and no way for the user to learn that deletion had not been confirmed.
+
+Both layers were implemented for the Proofreader, matching the Transcriber: a `finally` sweep in the processing job, a new `/api/proofread/force-delete` endpoint, and the same staged client flow — three automatic attempts with increasing back-off, followed by an explicit user choice between retrying by hand and deferring to Layers 4 and 5.
+
+**Two deliberate asymmetries, documented rather than smoothed over.** The Proofreader deletes its input object *eagerly*, the moment the job has finished reading it, which is earlier than a `finally` block could; the `finally` is a safety net for the paths that never reach that point. And on the success path the result object is spared, because the browser still has to fetch it — Layer 3 removes it immediately afterwards. Both are visible in `finally-block-deletion.js`.
+
+**Repository changes.** `on-demand-erasure.js` now expresses all four production endpoints (two per application) as two parameterised functions, in the same style as `../signed-url-flow/issue-upload-url.js`; the parameters are exactly what differs between the applications. `finally-block-deletion.js` gained the Proofreader variant as a second function, since its shape genuinely differs rather than merely being parameterised.
+
+**Files touched.** `deletion-lifecycle/on-demand-erasure.js`, `deletion-lifecycle/finally-block-deletion.js`.
+
+### Fixed — `/api/proofread/delete-result`, false success response
+
+**What was wrong.** The Proofreader's on-demand erasure endpoint returned `{ success: true, deleted: true }` unconditionally. If the Cloud Storage delete failed for any reason other than "already gone" (HTTP 404), the endpoint still reported success. The Transcriber's equivalent endpoint has always returned HTTP 500 in that case.
+
+**What this did and did not affect.** It had no user-visible effect at the time, for a specific reason: nothing was listening. The Proofreader had no retry cycle that this response could mislead — the client made one fire-and-forget call and ignored the result entirely. The object left behind was still removed by the hourly orphan sweeper (Layer 4) and, failing that, by the bucket lifecycle rule (Layer 5).
+
+The bug mattered because of what was about to be built on top of it. A staged retry cycle keys off precisely this response; had Layer 3 been added without fixing it first, a genuine deletion failure would have been reported as success and every retry silently suppressed. It was therefore fixed before the retry cycle was introduced, not after.
+
+**Fix.** A non-404 Cloud Storage error now returns HTTP 500 with `deleted: false`, matching the Transcriber. The reference file carries a comment explaining why this response must be honest.
+
+**How this was found.** During the review that preceded extending Layer 3 to the Proofreader — the two endpoints were compared line by line before the client-side flow was ported.
+
+**Files touched.** `deletion-lifecycle/on-demand-erasure.js`.
+
 ### Fixed — `security-middleware/helmet-csp-config.js`, `styleSrc`
 
 **What was wrong.** This file listed `styleSrc: ["'self'"]`, while production also allowed a SHA-256 hash for one inline `<style>` block. Its own header stated "Nothing of substance. This is the real directive set" — which, for that one directive, was not accurate.
