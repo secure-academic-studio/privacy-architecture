@@ -1,18 +1,43 @@
 'use strict';
 
 // ============================================================================
-// Signed URL Architecture — the Backend Never Sees the File
+// Signed URL Architecture — the Upload Never Passes Through the Backend
 // ============================================================================
 // Substantiates: https://secureacademic.com/gdpr-architectural-background/#sec-3-1
 //                https://secureacademic.com/gdpr-architectural-background/#sec-5-3
-// Last verified against production: 2026-07-23
+// Last verified against production: 2026-07-27
+// See CHANGELOG.md (2026-07-27) for a correction applied to the framing of
+// this file's central claim since the previous verification.
 //
 // WHAT THIS DOES
 // The typical upload flow has the client send a file to the application's
 // own backend, which stores it and forwards it onward. Here the file goes
 // directly from the browser to Google Cloud Storage via a short-lived,
-// write-only Signed URL. The backend generates the URL — it never receives,
-// buffers, or stores the file's bytes.
+// write-only Signed URL. The backend generates the URL — the upload itself
+// never passes through it, and no request this file handles ever contains
+// file bytes.
+//
+// WHAT THIS DOES *NOT* MEAN
+// It does not mean the object is beyond the backend's reach. This process
+// holds the Cloud Storage service-account credentials — that is precisely
+// what allows it to sign a URL at all — so it can read an object whose name
+// it knows. It does so in exactly two places, both deliberately bounded and
+// both documented:
+//
+//   - The Transcriber's media-integrity check reads at most the first 2 MB
+//     of the uploaded object to verify its container before any AI call.
+//     See ../media-integrity-check/mediaIntegrityCheck.js and §3.1.1:
+//     https://secureacademic.com/gdpr-architectural-background/#sec-3-1-1
+//   - The Proofreader's background job downloads the tokenised text into
+//     memory, because it must be split into chunks and dispatched across
+//     several parallel AI calls — something that cannot be delegated to a
+//     storage URI. See §5.3:
+//     https://secureacademic.com/gdpr-architectural-background/#sec-5-3
+//
+// Neither writes the content to disk or to a database. This is spelled out
+// because "the backend never sees the file" is a stronger claim than the
+// architecture actually supports, and this repository is meant to be
+// accurate rather than flattering.
 //
 // This one function represents two near-identical production endpoints:
 // `/api/transcribe/get-upload-url` (audio, folder "pending/") and

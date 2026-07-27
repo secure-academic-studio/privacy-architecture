@@ -4,7 +4,9 @@
 // Defence Middleware: Helmet, CSP, and Attack-Pattern Filtering
 // ============================================================================
 // Substantiates: https://secureacademic.com/gdpr-architectural-background/#sec-2-3
-// Last verified against production: 2026-07-23
+// Last verified against production: 2026-07-27
+// See CHANGELOG.md (2026-07-27) for a correction applied to `styleSrc` since
+// the previous verification.
 //
 // WHAT THIS DOES
 // A whitelist-based Content Security Policy (defaultSrc: 'none' — everything
@@ -33,7 +35,21 @@ function applySecurityMiddleware(app) {
             directives: {
                 defaultSrc: ["'none'"],
                 scriptSrc: ["'self'"],
-                styleSrc: ["'self'"],
+
+                // The hash allows exactly one inline <style> block: the critical
+                // FOUC guard on the landing pages, which sets .hidden-modal and
+                // .cookie-banner-hidden before the external stylesheet has
+                // loaded. A hash pins that exact byte sequence and nothing else
+                // — every other inline style stays blocked. This is materially
+                // stronger than the 'unsafe-inline' most sites reach for here.
+                //
+                // If that block's content changes by even one character, this
+                // hash must be regenerated. Nothing will visibly break: the
+                // browser silently blocks the style and the flash of unstyled
+                // content simply returns. Regenerate with:
+                //   printf '%s' '<exact content of the style block>' \
+                //     | openssl dgst -sha256 -binary | openssl base64
+                styleSrc: ["'self'", "'sha256-2PEbkGLmtHfzMevGDD4W1C0L4JGlMm5gslo3JqC4g7M='"],
                 imgSrc: ["'self'", "data:", "blob:"],
                 mediaSrc: ["'self'"],
                 connectSrc: ["'self'", "blob:", "https://storage.googleapis.com"], // required for the Signed URL flow
