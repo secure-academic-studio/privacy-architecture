@@ -3,16 +3,24 @@
 // ============================================================================
 // Media Integrity Check — Server-Side Container/Format Validation
 // ============================================================================
-// Substantiates: not yet described in the public architecture document (see
-//                README.md — this module is offered here ahead of the doc
-//                being updated to include it).
-// Last verified against production: 2026-07-23
+// Substantiates: https://secureacademic.com/gdpr-architectural-background/#sec-3-1-1
+// Last verified against production: 2026-07-27
+// See CHANGELOG.md (2026-07-27): this module was published here before the
+// architecture document described it; §3.1.1 has since been added, and this
+// header now points at it.
 //
 // This file is reproduced essentially unchanged from production: it is
 // already self-contained, has no external dependencies, and contains no
 // business-sensitive logic or infrastructure identifiers — nothing needed
 // sanitizing. Its own header comment below (unchanged) explains what it
 // does and why.
+//
+// One scope detail worth reading alongside §3.1.1: the caller passes in at
+// most the first 2 MB of the uploaded object, so for any file larger than
+// that only the container header region is ever parsed. For a file smaller
+// than 2 MB the range covers the whole object. The `validateAudioContainer`
+// function itself reads only container and track metadata — it never decodes
+// or inspects the audio payload.
 // ============================================================================
 
 // ============================================================================

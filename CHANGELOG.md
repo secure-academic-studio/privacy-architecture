@@ -4,6 +4,18 @@ Notable updates to this repository — corrections, re-verifications against pro
 
 ## 2026-07-27
 
+### Changed — `media-integrity-check/` is now covered by the architecture document
+
+**What changed.** This module was published here in the initial release *before* the architecture document described it, and both the README and the file's own header said so explicitly. The document has since been extended: [§3.1.1 Server-Side Media Validation](https://secureacademic.com/gdpr-architectural-background/#sec-3-1-1) now describes the check, and the README row and the file header point at it instead of announcing an intention.
+
+**Why the section was written where it was.** §3.1 is titled "the Signed URL Architecture — the backend never sees the audio file", and its auditor's note previously claimed that a compromised backend "would have no access to the raw audio files". The media-integrity check is the clearest counter-example to that framing: it is the one place where the Transcriber's backend deliberately reads bytes from the uploaded object. §3.1.1 was therefore placed immediately after §3.1, so the qualification sits where the absolute claim used to be. The related correction to §3.1 and to this repository's `signed-url-flow/issue-upload-url.js` is recorded in a separate entry below.
+
+**Scope stated precisely.** §3.1.1 and the file header both now state the exact extent of the read: at most the first 2 MB of the object, which for any file over that size means the container header region only — but for a file *under* 2 MB the range covers the whole object, so a short recording does pass through backend memory in full for the duration of the check. The `checkSizeDurationRatio` helper in this module is deliberately **not** described in the architecture document: in production it is log-only and not enforced, and documenting it as a control would overstate what it does.
+
+**No code changed.** The module in this repository remains byte-identical to production apart from its repository header; that was re-verified in this pass, and its `Last verified against production` date updated accordingly.
+
+**Files touched.** `media-integrity-check/mediaIntegrityCheck.js` (header only), `README.md`.
+
 ### Added — Layers 2 and 3 extended to the Academic Proofreader
 
 **What changed in production.** Until now the Proofreader had only part of the five-layer deletion guarantee. Layers 1, 4 and 5 already applied to it, because they are properties of the shared bucket and the shared hourly sweeper. Layers 2 and 3 did not: there was no `finally`-block safety net around the processing job, and the client-side erasure call was a single fire-and-forget `fetch` whose outcome was never checked, with no retry cycle and no way for the user to learn that deletion had not been confirmed.
