@@ -4,7 +4,9 @@
 // Five-Layer Deletion Guarantee — Layer 3: Client-Initiated Erasure Flow
 // ============================================================================
 // Substantiates: https://secureacademic.com/gdpr-architectural-background/#sec-3-2
-// Last verified against production: 2026-07-23
+// Last verified against production: 2026-07-27
+// See CHANGELOG.md (2026-07-27) for a fix applied to forceDelete since the
+// previous verification.
 //
 // WHAT THIS DOES
 // Two endpoints, used together as one staged flow:
@@ -98,18 +100,26 @@ async function forceDelete(req, res, db, { gcsStorage, GCS_BUCKET }) {
         }
 
         let allDeleted = true;
+
         for (const t of trackings) {
+            // Each object's tracking row must be cleared based on its OWN outcome,
+            // not the batch-wide flag — otherwise a single earlier GCS failure
+            // leaves every subsequent successfully-deleted object's row stuck as
+            // falsely "pending" in gcs_lifecycle_tracking. (Fixed 2026-07-27,
+            // flagged via external code review of this repository — see CHANGELOG.md.)
+            let itemDeleted = true;
             if (gcsStorage) {
                 try {
                     await gcsStorage.bucket(GCS_BUCKET).file(t.object_name).delete();
                 } catch (e) {
                     if (e.code !== 404) {
                         console.error('[ForceDelete] Failed to delete from GCS:', t.object_name);
+                        itemDeleted = false;
                         allDeleted = false;
                     }
                 }
             }
-            if (allDeleted || !gcsStorage) {
+            if (itemDeleted) {
                 await db.run('DELETE FROM gcs_lifecycle_tracking WHERE object_name = ?', [t.object_name]);
             }
         }

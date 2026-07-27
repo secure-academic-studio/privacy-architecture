@@ -55,6 +55,8 @@ A few starting points that don't require reading the whole repository:
 
 A public reference that silently drifts from production is worse than no reference at all. Each file below its status marker carries a `Last verified against production:` comment with a date. If you find a discrepancy between this repository, the architecture document, and the live site's actual behavior, that is exactly the kind of finding we want to hear about — see below.
 
+See [CHANGELOG.md](./CHANGELOG.md) for a dated history of corrections made to this repository, including what was wrong and why.
+
 ## Reporting a discrepancy
 
 If something here doesn't match what you observe from the live application (via browser devtools, network inspection, or otherwise), please tell us:
