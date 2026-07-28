@@ -5,7 +5,7 @@
 // ============================================================================
 // Substantiates: https://secureacademic.com/gdpr-architectural-background/#sec-4-1
 //                https://secureacademic.com/gdpr-architectural-background/#sec-4-2
-// Last verified against production: 2026-07-23
+// Last verified against production: 2026-07-28
 //
 // WHAT THIS DOES
 // Runs entirely in the browser. The user draws boxes over sensitive fields
@@ -19,6 +19,15 @@
 // Payload" ZIP *before* extraction begins, containing exactly the images
 // the AI will receive — so the user can verify what will be sent before
 // anything is transmitted.
+//
+// SCOPE — WHICH TOOLS THIS APPLIES TO
+// This file covers the single-file Bank Statement and Invoice Converters
+// only. The Batch Bank Statement Converter and Batch Invoice Converter
+// share the same backend (see gdpr-architectural-background/#sec-4-5) but
+// deliberately omit both routines above: pages are still rasterized
+// client-side, but no masking UI is offered and no Audit Payload ZIP is
+// built. Everything downstream — the stateless, no-persistence
+// transmission — is identical between the single-file and batch variants.
 //
 // WHAT'S DELIBERATELY DIFFERENT FROM PRODUCTION
 // DOM/UI wiring (progress bars, button states, localized strings) has been

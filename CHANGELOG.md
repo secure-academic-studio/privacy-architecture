@@ -2,6 +2,20 @@
 
 Notable updates to this repository — corrections, re-verifications against production, and additions. See [Keeping this in sync](./README.md#keeping-this-in-sync) for why this file exists.
 
+## 2026-07-28
+
+### Fixed — `client-side/canvas-pixel-redaction.js`, scope of the redaction claim
+
+**What was wrong.** The file's header described the pixel-masking and Audit Payload ZIP routines without stating which tools they apply to. Read in isolation, it could be mistaken for describing the PDF-to-Excel conversion architecture generally. In fact both routines apply to the single-file Bank Statement and Invoice Converters only: the Batch Bank Statement Converter and Batch Invoice Converter share the same backend ([§4.5](https://secureacademic.com/gdpr-architectural-background/#sec-4-5)) but deliberately omit both — pages are still rasterized client-side, but no masking UI is offered and no Audit ZIP is built.
+
+**What this did and did not affect.** No code or production behaviour changed; this is a documentation-scope correction only. The claims the file makes about the single-file flow remain accurate — the gap was what it left unsaid about the batch flow.
+
+**Fix.** A new header section states the scope explicitly: which tools the file covers, which don't use this code path, and a link to [§4.5](https://secureacademic.com/gdpr-architectural-background/#sec-4-5) for the two omitted steps and why. The file's `Last verified against production` date was updated in the same pass.
+
+**How this was found.** Flagged during the same repository-wide review documented in the entries below (2026-07-27) as a scope gap worth its own pass, since it required cross-referencing [§4.5](https://secureacademic.com/gdpr-architectural-background/#sec-4-5) rather than a code-level defect.
+
+**Files touched.** `client-side/canvas-pixel-redaction.js` (header only).
+
 ## 2026-07-27
 
 ### Changed — `media-integrity-check/` is now covered by the architecture document
