@@ -1,7 +1,7 @@
 # GCP Organization Policy — EU-Only Resource Locations
 
 Substantiates: [§2.2 Organisation-Level Resource Location Policy](https://secureacademic.com/gdpr-architectural-background/#sec-2-2)
-Last verified against production: 2026-07-23
+Last verified against production: 2026-07-28
 
 ## What this is
 
@@ -54,6 +54,99 @@ gcloud storage buckets describe gs://YOUR_BUCKET_NAME \
 ```
 
 We are not able to grant external read access to our own organization for obvious security reasons — this document is a faithful transcription of the current configuration, offered so that the *shape* and *mechanism* of the guarantee is checkable even without direct console access. If you believe any value here is stale, please see the main [README](../README.md#reporting-a-discrepancy).
+
+## Verification information (2026-07-28)
+
+The two commands above were run against the live organization and the live storage bucket on 2026-07-28. Below is the command and its actual result — not a paraphrase, and not the full terminal session (login banner and shell prompt omitted).
+
+```
+$ gcloud resource-manager org-policies describe gcp.resourceLocations \
+  --organization=1042350173656 \
+  --effective
+constraint: constraints/gcp.resourceLocations
+listPolicy:
+  allowedValues:
+  - europe-southwest1-a
+  - europe-west3-a
+  - europe-west8-c
+  - europe-west8-locations
+  - eu-locations
+  - europe-west1-d
+  - europe-central2-c
+  - europe-west3-b
+  - it-locations
+  - europe-west8-a
+  - europe-southwest1-c
+  - europe-central2-a
+  - europe-west4-b
+  - eur4
+  - europe-west4-locations
+  - europe-north2-a
+  - europe-west12-locations
+  - europe-west12-b
+  - europe-west10-locations
+  - de
+  - europe-west8-b
+  - de-locations
+  - europe-west4
+  - europe-west1-b
+  - europe-west4-a
+  - europe-west9-c
+  - europe-north1-c
+  - europe-west9
+  - it
+  - europe-west
+  - europe-central2
+  - europe-southwest1-b
+  - europe-west12-a
+  - europe-west10-a
+  - europe-north1-b
+  - europe-southwest1-locations
+  - europe-west1
+  - europe-west10-c
+  - europe-west3-c
+  - europe-north1-a
+  - europe-west12
+  - europe-west10
+  - EU
+  - europe-central2-b
+  - europe-west10-b
+  - europe-north2-c
+  - eur3
+  - europe-west1-c
+  - europe-north2
+  - europe-north2-b
+  - europe-west9-a
+  - europe-north1
+  - eu
+  - europe-west9-b
+  - europe-north2-locations
+  - europe-west1-locations
+  - europe-west3-locations
+  - europe-west9-locations
+  - europe-southwest1
+  - europe-north1-locations
+  - europe-west3
+  - eur8
+  - europe-central2-locations
+  - europe-west12-c
+  - europe-west8
+  - europe-west4-c
+```
+
+```
+$ gcloud storage buckets describe gs://SECURE_ACADEMIC_STUDIO_BUCKET_NAME \
+  --format="yaml(location, uniform_bucket_level_access, public_access_prevention)"
+location: EU
+public_access_prevention: enforced
+uniform_bucket_level_access: true
+```
+
+The 66-entry allow-list above matches the region, zone, and multi-region family described under [The constraint](#the-constraint) — and, checked entry by entry, neither `europe-west2` (London) nor `europe-west6` (Zurich) appears anywhere in it, confirming the "correctly excludes" claim made above. The bucket output confirms `location: EU`, `uniform_bucket_level_access: true`, and `public_access_prevention: enforced`, matching the [bucket-level hardening](#bucket-level-hardening-consistent-with-the-constraint-above) section exactly.
+
+The organization ID is shown as-is, since it is the organization's public identity rather than an infrastructure secret (see [README](../README.md#what-this-repository-is-not)). The bucket name is redacted to `SECURE_ACADEMIC_STUDIO_BUCKET_NAME`, consistent with this repository's placeholder policy for infrastructure identifiers — not because the name is otherwise secret; the signed-URL upload flow already exposes it to any browser DevTools session on the live site (see [`signed-url-flow/issue-upload-url.js`](../signed-url-flow/issue-upload-url.js)).
+
+This remains self-reported: a reader still cannot re-run these commands themselves. It is, however, dated, exact, and directly checkable against Google's own public documentation of what `eu-locations` should contain.
 
 ## Why this matters
 

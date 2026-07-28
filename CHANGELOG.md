@@ -4,6 +4,16 @@ Notable updates to this repository — corrections, re-verifications against pro
 
 ## 2026-07-28
 
+### Added — verification information for `infrastructure/gcp-organization-policy.md`
+
+**What changed.** This was the one claim in the repository nobody outside the organisation could check for themselves — by nature, not by choice: granting external viewer access to the GCP organisation would expose far more than this one policy. The document already gave the exact commands a reader would need if they had that access; it now also carries the actual, dated output of running them against the live organisation and the live storage bucket.
+
+**What the information shows.** The effective `gcp.resourceLocations` allow-list (organisation ID disclosed — it is the organisation's public identity, tied to the secureacademic.com domain, not an infrastructure secret) contains every EU region, zone, and multi-region alias described above — and, matching the document's most falsifiable claim, `europe-west2` (London) and `europe-west6` (Zurich) do not appear anywhere among its 66 entries. The bucket-level output — bucket name redacted, per [What this repository is not](../README.md#what-this-repository-is-not) — confirms `location: EU`, `uniform_bucket_level_access: true`, and `public_access_prevention: enforced`, matching the bucket-level hardening claims exactly.
+
+**What this does and does not prove.** This remains self-reported information — a reader still cannot re-run these commands themselves, and nothing here is cryptographically bound to the date it claims. It is nonetheless a meaningful step up from an unverifiable claim: it is dated, exact, falsifiable against Google's own public documentation of what `eu-locations` should contain, and shows the actual field values rather than a paraphrase of them. The bucket name is redacted for consistency with this repository's existing policy on infrastructure identifiers (`signed-url-flow/issue-upload-url.js` does the same) — not because the name is otherwise secret; the signed-URL upload flow already exposes it to any browser DevTools session on the live site.
+
+**Files touched.** `infrastructure/gcp-organization-policy.md`, `README.md` (a stated exception for the organisation ID, alongside the existing placeholder policy for project IDs, bucket names, and similar infrastructure identifiers).
+
 ### Fixed — `client-side/canvas-pixel-redaction.js`, scope of the redaction claim
 
 **What was wrong.** The file's header described the pixel-masking and Audit Payload ZIP routines without stating which tools they apply to. Read in isolation, it could be mistaken for describing the PDF-to-Excel conversion architecture generally. In fact both routines apply to the single-file Bank Statement and Invoice Converters only: the Batch Bank Statement Converter and Batch Invoice Converter share the same backend ([§4.5](https://secureacademic.com/gdpr-architectural-background/#sec-4-5)) but deliberately omit both — pages are still rasterized client-side, but no masking UI is offered and no Audit ZIP is built.

@@ -18,7 +18,7 @@ This is **not** the full production codebase, and it is **not** licensed or inte
 - Admin authentication and admin-only endpoints.
 - The full public API route map (only the routes that a given mechanism requires to make sense are shown).
 - AI prompt engineering (system instructions given to the Gemini models). These are a product differentiator, not a privacy mechanism, and disclosing them would mainly help competitors, not auditors.
-- Real infrastructure identifiers: GCP project IDs, bucket names, database paths, and similar values are replaced with placeholders throughout.
+- Real infrastructure identifiers: GCP project IDs, bucket names, database paths, and similar values are replaced with placeholders throughout — with one stated exception: the GCP organization ID in [`infrastructure/gcp-organization-policy.md`](./infrastructure/gcp-organization-policy.md) is shown as-is, since it identifies the organization itself (tied to the public secureacademic.com domain) rather than any internal infrastructure detail.
 
 If a claim on our site or in the architecture document isn't backed by something in here, that's a gap to report, not an oversight to assume — see [Reporting a discrepancy](#reporting-a-discrepancy) below.
 
