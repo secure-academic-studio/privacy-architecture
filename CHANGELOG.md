@@ -2,6 +2,22 @@
 
 Notable updates to this repository — corrections, re-verifications against production, and additions. See [Keeping this in sync](./README.md#keeping-this-in-sync) for why this file exists.
 
+## 2026-08-07
+
+### Changed — the Transcriber's media-integrity check moved out of the backend entirely
+
+**What changed in production.** The media-integrity check described in [§3.1.1](https://secureacademic.com/gdpr-architectural-background/#sec-3-1-1) — reading a bounded byte range of an uploaded audio file to reject a renamed video before it reaches the AI pipeline — used to run inside the main backend process. It now runs inside a separate, single-purpose Cloud Run service (`sas-transcriber-media-validator`), under its own IAM-restricted identity, entirely outside the backend. The backend's only remaining role is to call that service over HTTPS, authenticated via short-lived impersonation, and receive back a pass/fail verdict — never a byte of the file.
+
+**The parser itself also changed.** A real, previously-rejected file surfaced a gap: a "non-fast-start" M4A/MP4 (track metadata placed after the media payload — common for files produced without an explicit `faststart` flag) could have its metadata sit past the original 2 MB header window, and would be rejected as unparseable even though it was a perfectly legitimate audio file. `media-integrity-check/mediaIntegrityCheck.js` now computes, from box sizes already declared in what it has, the exact byte offset where that metadata begins, and its caller may issue exactly one further bounded follow-up read (capped at 8 MB) targeted at that offset — never a blind, unbounded download. This fixes the false rejection and is unrelated to, though shipped alongside, the isolation change above.
+
+**Why this is worth its own entry, not just a file update.** [§3.1](https://secureacademic.com/gdpr-architectural-background/#sec-3-1)'s title has, at different points, made two different versions of the same claim. The [2026-07-27 entry below](#2026-07-27) records why it had to be walked back at the time: the media-integrity check was a real, standing counter-example to "the backend never sees the audio file," and the honest fix then was to add [§3.1.1](https://secureacademic.com/gdpr-architectural-background/#sec-3-1-1) and qualify the claim, not to keep asserting it unqualified. This entry records the opposite move — not a softer restatement, but an actual architectural change that makes the original, stronger claim true again. §3.1's title now reads "...the backend server never sees the user's audio file" a second time, and this time nothing in this repository contradicts it.
+
+**Files added.** `isolated-media-validator/index.js` (the Cloud Run request handler), `isolated-media-validator/call-from-backend.js` (the backend's caller), `infrastructure/media-validator-iam.md` (the two service accounts and the IAM Condition that make "isolated" checkable rather than merely asserted).
+
+**Files touched.** `media-integrity-check/mediaIntegrityCheck.js` (the secondary-read logic, and its header), `signed-url-flow/issue-upload-url.js` (its central claim now names one bounded backend read, not two), `README.md` (the module table and the "Verifying a claim yourself" section).
+
+**How this was found.** The false rejection was found via a real user's file during unrelated work on the isolation change; both were verified and shipped together rather than separately, since the parser fix only mattered once the new deployment shape existed to test it against.
+
 ## 2026-07-28
 
 ### Added — verification information for `infrastructure/gcp-organization-policy.md`

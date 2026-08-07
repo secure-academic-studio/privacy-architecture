@@ -5,9 +5,9 @@
 // ============================================================================
 // Substantiates: https://secureacademic.com/gdpr-architectural-background/#sec-3-1
 //                https://secureacademic.com/gdpr-architectural-background/#sec-5-3
-// Last verified against production: 2026-07-27
-// See CHANGELOG.md (2026-07-27) for a correction applied to the framing of
-// this file's central claim since the previous verification.
+// Last verified against production: 2026-08-07
+// See CHANGELOG.md (2026-08-07) for a correction applied to the framing of
+// this file's central claim since the previous verification (2026-07-27).
 //
 // WHAT THIS DOES
 // The typical upload flow has the client send a file to the application's
@@ -18,26 +18,30 @@
 // file bytes.
 //
 // WHAT THIS DOES *NOT* MEAN
-// It does not mean the object is beyond the backend's reach. This process
-// holds the Cloud Storage service-account credentials — that is precisely
-// what allows it to sign a URL at all — so it can read an object whose name
-// it knows. It does so in exactly two places, both deliberately bounded and
-// both documented:
+// It does not mean the object is beyond the backend's reach in principle.
+// This process holds the Cloud Storage service-account credentials — that
+// is precisely what allows it to sign a URL at all — so it *could* read an
+// object whose name it knows. As of this pass, it exercises that capability
+// in exactly one place, deliberately bounded and documented:
 //
-//   - The Transcriber's media-integrity check reads at most the first 2 MB
-//     of the uploaded object to verify its container before any AI call.
-//     See ../media-integrity-check/mediaIntegrityCheck.js and §3.1.1:
-//     https://secureacademic.com/gdpr-architectural-background/#sec-3-1-1
 //   - The Proofreader's background job downloads the tokenised text into
 //     memory, because it must be split into chunks and dispatched across
 //     several parallel AI calls — something that cannot be delegated to a
 //     storage URI. See §5.3:
 //     https://secureacademic.com/gdpr-architectural-background/#sec-5-3
 //
-// Neither writes the content to disk or to a database. This is spelled out
-// because "the backend never sees the file" is a stronger claim than the
-// architecture actually supports, and this repository is meant to be
-// accurate rather than flattering.
+// That content is never written to disk or to a database. This is spelled
+// out because "the backend never sees the file" is a stronger claim than
+// this alone would support, and this repository is meant to be accurate
+// rather than flattering.
+//
+// A second such case used to exist here: the Transcriber's media-integrity
+// check used to read at most the first 2 MB of the uploaded object directly
+// in this process. It no longer does. That check now runs inside a
+// separate, single-purpose Cloud Run service, under its own IAM-restricted
+// identity — this process calls it over HTTPS and gets back a verdict,
+// never bytes. See ../isolated-media-validator/ and §3.1.1:
+// https://secureacademic.com/gdpr-architectural-background/#sec-3-1-1
 //
 // This one function represents two near-identical production endpoints:
 // `/api/transcribe/get-upload-url` (audio, folder "pending/") and
@@ -86,8 +90,9 @@ async function issueUploadUrl(req, res, db, { objectPrefix, allowedExts = null }
         // Extension whitelist — prevents a client from bypassing the
         // browser-side check (e.g. renaming a video to .m4a) and uploading
         // an unsupported, more-expensive-to-process file type. See also
-        // ../media-integrity-check/mediaIntegrityCheck.js, which validates
-        // the actual bytes server-side once the upload completes.
+        // ../media-integrity-check/mediaIntegrityCheck.js, which the
+        // isolated validator service (../isolated-media-validator/) uses to
+        // check the actual bytes once the upload completes.
         if (allowedExts && !allowedExts.includes(ext)) {
             return res.status(400).json({
                 error: `Unsupported file type. Allowed: ${allowedExts.join(', ').toUpperCase()}.`

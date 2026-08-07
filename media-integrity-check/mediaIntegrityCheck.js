@@ -4,30 +4,44 @@
 // Media Integrity Check — Server-Side Container/Format Validation
 // ============================================================================
 // Substantiates: https://secureacademic.com/gdpr-architectural-background/#sec-3-1-1
-// Last verified against production: 2026-07-27
-// See CHANGELOG.md (2026-07-27): this module was published here before the
-// architecture document described it; §3.1.1 has since been added, and this
-// header now points at it.
+// Last verified against production: 2026-08-07
+// See CHANGELOG.md (2026-08-07): this module gained a second, precisely
+// bounded follow-up read for "non-fast-start" containers, and — at the
+// deployment level, not in this file's own logic — moved out of the backend
+// entirely, into the isolated Cloud Run service in
+// ../isolated-media-validator/.
+//
+// WHO CALLS THIS, AND FROM WHERE
+// As of this pass, this module is required only by
+// ../isolated-media-validator/index.js — a separate, single-purpose Cloud
+// Run service, not the main backend. See that file, and
+// ../infrastructure/media-validator-iam.md, for what "isolated" means
+// concretely: its own service account, IAM-restricted to this bucket's
+// upload prefix and nothing else. The backend's own role is now limited to
+// calling that service over HTTPS and receiving a verdict back — see
+// ../isolated-media-validator/call-from-backend.js. This file itself does
+// no I/O and does not know or care who its caller is; the paragraph above
+// is about deployment, not about anything that changed in the code below.
 //
 // This file is reproduced essentially unchanged from production: it is
-// already self-contained, has no external dependencies, and contains no
+// self-contained, has no external dependencies, and contains no
 // business-sensitive logic or infrastructure identifiers — nothing needed
-// sanitizing. Its own header comment below (unchanged) explains what it
-// does and why.
+// sanitizing. Its own header comment below (largely unchanged) explains
+// what it does and why.
 //
 // One scope detail worth reading alongside §3.1.1: the caller passes in at
 // most the first 2 MB of the uploaded object, so for any file larger than
-// that only the container header region is ever parsed. For a file smaller
-// than 2 MB the range covers the whole object. The `validateAudioContainer`
-// function itself reads only container and track metadata — it never decodes
-// or inspects the audio payload.
+// that only the container header region is parsed initially. For a file
+// smaller than 2 MB the first range already covers the whole object. The
+// `validateAudioContainer` function itself reads only container and track
+// metadata — it never decodes or inspects the audio payload.
 // ============================================================================
 
 // ============================================================================
 // SAS Transcriber — Media Integrity Check
 // ============================================================================
-// Dependency-free, bounded container/track sniffer used as a server-side gate
-// before an uploaded file is handed to the Gemini API for transcription.
+// Dependency-free, bounded container/track sniffer used as a gate before an
+// uploaded file is handed to the Gemini API for transcription.
 //
 // WHY THIS EXISTS
 // The client (and the file name it sends) can never be trusted: a user can
@@ -52,8 +66,15 @@
 //
 // This module intentionally only inspects a small header prefix of the
 // file (the caller decides how much to fetch from GCS — a couple of MB is
-// plenty for all four supported formats). It never needs, and never
-// receives, the full file.
+// plenty for all four supported formats) — plus, for ISO-BMFF (mp4/m4a)
+// only, at most one small, precisely-targeted follow-up range, requested
+// via an optional caller-supplied `fetchRange` callback (see
+// validateAudioContainer below). That follow-up exists for "non-fast-start"
+// files, where the `moov` box (which is what tells us whether a video
+// track is present) sits after the media data — sometimes megabytes past
+// any fixed-size header prefix. This module computes exactly which byte
+// range would resolve that, using the box sizes already declared in what
+// it has; it still never decodes, transcodes, or performs any I/O itself.
 // ============================================================================
 
 const MAX_BOX_DEPTH = 12;
@@ -138,6 +159,22 @@ function analyzeIsoBmff(buf) {
     let sawTrak = false;
     let truncated = false;
 
+    // Populated only while walking the TOP-LEVEL box sequence (depth 0).
+    // - topLevelCursor: the offset (relative to `buf`) of the next
+    //   top-level box, computed purely from preceding boxes' own declared
+    //   sizes — set even when we don't have that box's bytes at all. This
+    //   is what lets a caller ask for exactly "the next box", instead of
+    //   guessing a fixed-size window (e.g. a "non-fast-start" M4A/MP4 where
+    //   `moov` sits after a multi-MB `mdat`, past whatever header prefix
+    //   was fetched).
+    // - moovBoxOffset/moovBoxSize: recorded the instant a `moov` box header
+    //   is seen, even if its body turns out to be truncated relative to
+    //   `buf` — lets a caller fetch exactly that box's declared span,
+    //   rather than a guessed window, when only the tail of moov is missing.
+    let topLevelCursor = null;
+    let moovBoxOffset = null;
+    let moovBoxSize = null;
+
     function walk(start, end, depth) {
         if (depth > MAX_BOX_DEPTH) { truncated = true; return; }
         let offset = start;
@@ -148,7 +185,13 @@ function analyzeIsoBmff(buf) {
             const { type, size, bodyStart } = header;
             const bodyEnd = Math.min(offset + size, end);
 
-            if (type === 'moov') sawMoov = true;
+            if (type === 'moov') {
+                sawMoov = true;
+                if (moovBoxOffset === null) {
+                    moovBoxOffset = offset;
+                    moovBoxSize = size;
+                }
+            }
             if (type === 'trak') sawTrak = true;
 
             if (ISO_BMFF_CONTAINER_BOXES.has(type)) {
@@ -165,12 +208,43 @@ function analyzeIsoBmff(buf) {
         }
         // Reaching the end of the available prefix without a parse error is
         // normal (the real file continues beyond what we downloaded) and is
-        // NOT considered "truncated" on its own.
+        // NOT considered "truncated" on its own. At top level specifically,
+        // record where the next box would begin — see topLevelCursor above.
+        // (If the loop instead exited via one of the early `return`s above,
+        // e.g. a genuinely malformed header, this line is never reached —
+        // deliberately: we only offer a resume point for the ordinary "ran
+        // out of prefix" case, never for actually malformed data.)
+        if (depth === 0) {
+            topLevelCursor = offset;
+        }
     }
 
     walk(0, buf.length, 0);
 
-    return { hasVideoTrack, hasAudioTrack, sawMoov, sawTrak, truncated };
+    // needsOffset tells a caller where a follow-up read could make
+    // progress, or stays null if either we already have enough, or what we
+    // have doesn't warrant guessing (malformed top-level structure). `end`
+    // is an EXCLUSIVE byte offset (one past the last byte needed) when
+    // known (the moov box's own declared size), or null when unknown (we
+    // haven't reached moov yet, so we don't know its size — caller should
+    // apply its own bounded window from `start`).
+    //
+    // NOTE: if a box's on-disk size field is literally 0 ("extends to EOF",
+    // legal per the spec but essentially never used for `moov` in practice)
+    // readIsoBoxHeader clamps it to the available buffer, which can make a
+    // truncated moov look already-complete here. This is a known, accepted
+    // gap for that specific edge case: the verdict simply stays
+    // `unparseable`, exactly as it would without this feature — no
+    // regression, just no gain for that rare shape.
+    let needsOffset = null;
+    if (!sawMoov && topLevelCursor !== null) {
+        needsOffset = { start: topLevelCursor, end: null };
+    } else if (sawMoov && !sawTrak && moovBoxOffset !== null &&
+               moovBoxOffset + moovBoxSize > buf.length) {
+        needsOffset = { start: moovBoxOffset, end: moovBoxOffset + moovBoxSize };
+    }
+
+    return { hasVideoTrack, hasAudioTrack, sawMoov, sawTrak, truncated, needsOffset };
 }
 
 // ----------------------------------------------------------------------------
@@ -337,9 +411,24 @@ function analyzeOgg(buf) {
  * @param {Object} params
  * @param {Buffer} params.buffer - header prefix of the uploaded file
  * @param {string} params.claimedExt - extension the object was stored under (no dot)
- * @returns {{ ok: boolean, reason?: string, details?: object }}
+ * @param {(start: number, endExclusive: number) => Promise<Buffer|null>} [params.fetchRange] -
+ *   Optional. ISO-BMFF (mp4/m4a) only: called at most ONCE, with an
+ *   absolute byte range `[start, endExclusive)`, if (and only if) the
+ *   initial `buffer` didn't contain a full `moov`+`trak` — e.g. a
+ *   "non-fast-start" file where `moov` sits after the media data, beyond
+ *   the header prefix. This function itself never does any I/O; it's the
+ *   caller's job to actually fetch those bytes (from GCS, a local file,
+ *   wherever) and return them as a Buffer, or null/empty if unavailable.
+ *   OGG/WEBM/MP3 never call this — their track metadata is at the front of
+ *   the file by construction, so the initial `buffer` is always enough.
+ * @param {number} [params.maxSecondaryReadBytes] - Hard cap (bytes) on the
+ *   size of that one follow-up range, regardless of what needsOffset asks
+ *   for. Keeps the extra read cheap and bounded; if the real moov box is
+ *   bigger than this, the verdict stays `unparseable` (fail-closed) rather
+ *   than growing the read further. Default 8 MiB.
+ * @returns {Promise<{ ok: boolean, reason?: string, details?: object }>}
  */
-function validateAudioContainer({ buffer, claimedExt }) {
+async function validateAudioContainer({ buffer, claimedExt, fetchRange, maxSecondaryReadBytes = 8 * 1024 * 1024 }) {
     const ext = (claimedExt || '').toLowerCase();
     const expectedFamily = EXT_TO_FAMILY[ext];
 
@@ -367,10 +456,51 @@ function validateAudioContainer({ buffer, claimedExt }) {
     }
 
     if (expectedFamily === 'iso-bmff') {
-        const r = analyzeIsoBmff(buffer);
-        if (r.hasVideoTrack) return { ok: false, reason: 'video_track_detected', details: r };
-        if (!r.sawMoov || !r.sawTrak) return { ok: false, reason: 'unparseable', details: r };
-        return { ok: true, details: r };
+        let r = analyzeIsoBmff(buffer);
+        let usedSecondaryRead = false;
+
+        if (!r.hasVideoTrack && (!r.sawMoov || !r.sawTrak) &&
+            r.needsOffset && typeof fetchRange === 'function') {
+            const { start, end } = r.needsOffset;
+            const cappedEndExclusive = end !== null
+                ? Math.min(end, start + maxSecondaryReadBytes)
+                : start + maxSecondaryReadBytes;
+
+            if (cappedEndExclusive > start) {
+                let secondaryBuf = null;
+                try {
+                    secondaryBuf = await fetchRange(start, cappedEndExclusive);
+                } catch (e) {
+                    // Fail-closed: a failed follow-up fetch just means we
+                    // proceed without it below — same as if it were never
+                    // attempted. Never treated as "assume ok".
+                    secondaryBuf = null;
+                }
+
+                if (secondaryBuf && secondaryBuf.length > 0) {
+                    usedSecondaryRead = true;
+                    const r2 = analyzeIsoBmff(secondaryBuf);
+                    // r2's own offsets are relative to secondaryBuf (which
+                    // starts at absolute file offset `start`, not 0), so we
+                    // deliberately do NOT chain a further read off r2's
+                    // needsOffset here — one bounded follow-up is the
+                    // scope this module supports. We only OR the boolean
+                    // signals.
+                    r = {
+                        hasVideoTrack: r.hasVideoTrack || r2.hasVideoTrack,
+                        hasAudioTrack: r.hasAudioTrack || r2.hasAudioTrack,
+                        sawMoov: r.sawMoov || r2.sawMoov,
+                        sawTrak: r.sawTrak || r2.sawTrak,
+                        truncated: r2.truncated,
+                    };
+                }
+            }
+        }
+
+        const details = usedSecondaryRead ? { ...r, usedSecondaryRead } : r;
+        if (r.hasVideoTrack) return { ok: false, reason: 'video_track_detected', details };
+        if (!r.sawMoov || !r.sawTrak) return { ok: false, reason: 'unparseable', details };
+        return { ok: true, details };
     }
 
     if (expectedFamily === 'ebml') {
