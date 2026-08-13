@@ -4,8 +4,8 @@
 // Defence Middleware: Helmet, CSP, and Attack-Pattern Filtering
 // ============================================================================
 // Substantiates: https://secureacademic.com/gdpr-architectural-background/#sec-2-3
-// Last verified against production: 2026-07-27
-// See CHANGELOG.md (2026-07-27) for a correction applied to `styleSrc` since
+// Last verified against production: 2026-08-13
+// See CHANGELOG.md (2026-08-13) for a correction applied to `styleSrc` since
 // the previous verification.
 //
 // WHAT THIS DOES
@@ -49,7 +49,7 @@ function applySecurityMiddleware(app) {
                 // content simply returns. Regenerate with:
                 //   printf '%s' '<exact content of the style block>' \
                 //     | openssl dgst -sha256 -binary | openssl base64
-                styleSrc: ["'self'", "'sha256-2PEbkGLmtHfzMevGDD4W1C0L4JGlMm5gslo3JqC4g7M='"],
+                styleSrc: ["'self'", "'sha256-4vurEtMiAUwF74WXSRMl643rz+j0dm1fCrAgSlc174k='"],
                 imgSrc: ["'self'", "data:", "blob:"],
                 mediaSrc: ["'self'"],
                 connectSrc: ["'self'", "blob:", "https://storage.googleapis.com"], // required for the Signed URL flow

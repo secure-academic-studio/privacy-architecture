@@ -2,6 +2,18 @@
 
 Notable updates to this repository — corrections, re-verifications against production, and additions. See [Keeping this in sync](./README.md#keeping-this-in-sync) for why this file exists.
 
+## 2026-08-13
+
+### Fixed — `security-middleware/helmet-csp-config.js`, `styleSrc` hash drift
+
+**What was wrong.** The published hash (`sha256-2PEbkGLm…`) no longer matched the live inline `<style>` block. Production moved to a new hash (`sha256-4vurEtMi…`) on 2026-07-28 — the day after this file's previous verification — and this repository was never updated to follow.
+
+**What this did and did not affect.** No functional impact. A stale hash fails closed, same as the 2026-07-27 case below: the style is blocked, not the security boundary, so the only visible effect would have been the FOUC guard failing again.
+
+**Fix.** Hash updated to match the live block; verification date updated accordingly.
+
+**Files touched.** `security-middleware/helmet-csp-config.js`.
+
 ## 2026-08-07
 
 ### Changed — the Transcriber's media-integrity check moved out of the backend entirely
