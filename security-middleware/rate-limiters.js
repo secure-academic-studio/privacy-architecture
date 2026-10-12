@@ -4,12 +4,13 @@
 // Rate Limiting — Tuned per Endpoint
 // ============================================================================
 // Substantiates: https://secureacademic.com/gdpr-architectural-background/#sec-2-4
-// Last verified against production: 2026-07-23
+// Last verified against production: 2026-10-12
 //
 // WHAT THIS DOES
 // Every sensitive endpoint sits behind its own rate limiter, calibrated to
 // the risk profile of that endpoint. The windows and thresholds below are
-// the real production values.
+// the real production values. The limiters shown are those of the
+// applications covered by the architecture document.
 //
 // WHAT'S DELIBERATELY DIFFERENT FROM PRODUCTION
 // In production each limiter is declared inline where it's used; here they

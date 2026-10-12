@@ -4,7 +4,7 @@
 // GDPR Compliance Guard + EU-only Vertex AI Routing
 // ============================================================================
 // Substantiates: https://secureacademic.com/gdpr-architectural-background/#sec-2-1
-// Last verified against production: 2026-07-23
+// Last verified against production: 2026-10-12
 //
 // WHAT THIS DOES
 // Two things happen at process start-up, before the HTTP server accepts a

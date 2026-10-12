@@ -4,7 +4,7 @@
 // Five-Layer Deletion Guarantee — Layer 4: the Orphan Sweeper
 // ============================================================================
 // Substantiates: https://secureacademic.com/gdpr-architectural-background/#sec-3-2
-// Last verified against production: 2026-07-23
+// Last verified against production: 2026-10-12
 //
 // WHAT THIS DOES
 // An hourly cron job that catches whatever Layers 2–3 might have missed —

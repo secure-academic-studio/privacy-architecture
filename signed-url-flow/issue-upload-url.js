@@ -5,9 +5,10 @@
 // ============================================================================
 // Substantiates: https://secureacademic.com/gdpr-architectural-background/#sec-3-1
 //                https://secureacademic.com/gdpr-architectural-background/#sec-5-3
-// Last verified against production: 2026-08-07
-// See CHANGELOG.md (2026-08-07) for a correction applied to the framing of
-// this file's central claim since the previous verification (2026-07-27).
+// Last verified against production: 2026-10-12
+// See CHANGELOG.md (2026-10-12) for the second correction to the framing of
+// this file's central claim: the backend's own read access has since been
+// removed, not merely documented.
 //
 // WHAT THIS DOES
 // The typical upload flow has the client send a file to the application's
@@ -18,30 +19,29 @@
 // file bytes.
 //
 // WHAT THIS DOES *NOT* MEAN
-// It does not mean the object is beyond the backend's reach in principle.
-// This process holds the Cloud Storage service-account credentials — that
-// is precisely what allows it to sign a URL at all — so it *could* read an
-// object whose name it knows. As of this pass, it exercises that capability
-// in exactly one place, deliberately bounded and documented:
+// It does not mean the object is beyond Google Cloud's reach, or that the
+// backend holds no credential at all. The backend signs write URLs with its
+// own service-account key. In production that identity holds only
+// `storage.objects.create` and `storage.objects.delete` on the upload and
+// result prefixes (see ../infrastructure/iam-identity-map.md): it can create
+// and delete objects there, but it cannot read or list them. The backend
+// never opens an upload. Audio is read by the Transcriber worker and by the
+// media validator, and document text by the Proofreader worker, each inside
+// Google Cloud under its own identity:
 //
-//   - The Proofreader's background job downloads the tokenised text into
-//     memory, because it must be split into chunks and dispatched across
-//     several parallel AI calls — something that cannot be delegated to a
-//     storage URI. See §5.3:
+//   - Transcriber worker (Gemini and Chirp read the audio from its gs:// URI):
+//     https://secureacademic.com/gdpr-architectural-background/#sec-3-1-2
+//   - Media validator (a bounded byte range, a verdict back, never bytes):
+//     https://secureacademic.com/gdpr-architectural-background/#sec-3-1-1
+//   - Proofreader worker (downloads the tokenised text into memory, deletes
+//     it at once, never writes it to disk):
 //     https://secureacademic.com/gdpr-architectural-background/#sec-5-3
 //
-// That content is never written to disk or to a database. This is spelled
-// out because "the backend never sees the file" is a stronger claim than
-// this alone would support, and this repository is meant to be accurate
-// rather than flattering.
-//
-// A second such case used to exist here: the Transcriber's media-integrity
-// check used to read at most the first 2 MB of the uploaded object directly
-// in this process. It no longer does. That check now runs inside a
-// separate, single-purpose Cloud Run service, under its own IAM-restricted
-// identity — this process calls it over HTTPS and gets back a verdict,
-// never bytes. See ../isolated-media-validator/ and §3.1.1:
-// https://secureacademic.com/gdpr-architectural-background/#sec-3-1-1
+// One legacy exception is disclosed rather than hidden: the old in-backend
+// processing code still exists in the backend's source, behind
+// `TRANSCRIBER_ALLOW_VPS_FALLBACK` and `PROOFREADER_ALLOW_VPS_FALLBACK`.
+// Both are unset in production, so without the remote path the endpoints
+// answer 503 instead. See ../fail-closed-modes/fail-closed-modes.js.
 //
 // This one function represents two near-identical production endpoints:
 // `/api/transcribe/get-upload-url` (audio, folder "pending/") and

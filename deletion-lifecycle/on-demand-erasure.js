@@ -5,10 +5,11 @@
 // ============================================================================
 // Substantiates: https://secureacademic.com/gdpr-architectural-background/#sec-3-2
 //                https://secureacademic.com/gdpr-architectural-background/#sec-5-4
-// Last verified against production: 2026-07-27
+// Last verified against production: 2026-10-12
 // See CHANGELOG.md (2026-07-27) for two changes since the previous
 // verification: a fix applied to forceDelete, and the extension of this
-// layer to the Academic Proofreader.
+// layer to the Academic Proofreader. Re-verified without code changes on
+// 2026-10-12 (CHANGELOG.md); the header gained a note on the backend's role.
 //
 // WHAT THIS DOES
 // Two endpoints, used together as one staged flow:
@@ -26,7 +27,8 @@
 //      user rather than silently assuming deletion succeeded.
 //
 // Both endpoints treat a 404 from GCS (object already gone) as success —
-// the same idempotence principle used in the `finally`-block layer.
+// the same idempotence principle used in the worker's end-of-job layer
+// (./worker-end-of-job-deletion.js).
 //
 // FOUR PRODUCTION ENDPOINTS, TWO FUNCTIONS
 // This layer is implemented identically for both cloud-backed applications:
@@ -38,6 +40,11 @@
 // object is named, so both are expressed here as parameters. The architecture
 // document claims parity between the two applications for this layer (§5.4);
 // that claim is what these parameters make checkable.
+//
+// WHAT THE BACKEND NEEDS FOR THIS
+// In production the backend performs these deletions with a role that can
+// create and delete objects but cannot read or list them (see
+// ../infrastructure/iam-identity-map.md). Deleting needs no read access.
 //
 // WHAT'S DELIBERATELY DIFFERENT FROM PRODUCTION
 // The ownership check, the sweep-all-tracked-objects behaviour, and the

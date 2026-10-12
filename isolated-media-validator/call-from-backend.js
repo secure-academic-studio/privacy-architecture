@@ -20,14 +20,14 @@
 // credential capable of reading the object's bytes for this purpose.
 //
 // AUTHENTICATION WITHOUT A STATIC KEY
-// The backend's own service account (the same wide identity used for the
-// platform's other Google Cloud / AI calls, referenced elsewhere in this
-// repository) is NOT the identity that calls the validator. The
-// organisation's policy forbids issuing new service-account keys
-// (`constraints/iam.managed.disableServiceAccountKeyCreation`), and even if
-// it didn't, using the backend's wide identity directly here would defeat
+// The backend's own service account (the identity behind its other Google
+// Cloud / AI calls; its permissions are listed in
+// ../infrastructure/iam-identity-map.md) is NOT the identity that calls the
+// validator. The organisation's policy forbids issuing new service-account
+// keys (`constraints/iam.managed.disableServiceAccountKeyCreation`), and even
+// if it didn't, using the backend's own identity directly here would defeat
 // the point of isolating the validator in the first place — a credential
-// capable of everything the backend can do is not a narrow one.
+// that can do everything the backend can do is not a narrow one.
 //
 // Instead, the backend's identity IMPERSONATES a second, narrowly-scoped
 // service account (`sas-validator-caller`) that holds nothing but
@@ -37,13 +37,13 @@
 // token; that token, not the backend's own credentials, is what the
 // validator's Cloud Run "require authentication" check actually verifies.
 //
-// FEATURE FLAG (production, not shown here)
-// In production this path sits behind an environment-variable flag, which
-// falls back to an older, in-process check if unset — so the cut-over to
-// this isolated design could be reverted instantly, without a redeploy, had
-// anything gone wrong during rollout. That fallback is not reproduced here:
-// this repository documents current, live behaviour, not a retired code
-// path — see the note on scope in ../README.md.
+// NO SILENT FALLBACK
+// In production an unset or lost configuration does not fall back to an
+// older, in-process check: the endpoints answer 503 and the upload is
+// deleted. The only way back to the old in-backend path is an explicit
+// `TRANSCRIBER_ALLOW_VPS_FALLBACK=true`, which is unset in production. That
+// path is not reproduced here, but it is disclosed, together with its limits,
+// in ../fail-closed-modes/fail-closed-modes.js.
 //
 // FAIL-CLOSED
 // Any non-200 response, any network error, and any timeout are all surfaced
@@ -74,7 +74,7 @@ let impersonatedClient = null;
 async function getImpersonatedClient() {
     if (!impersonatedClient) {
         // Explicit scope is required on the SOURCE client (the backend's own
-        // wide identity) for it to be able to request an ID token on behalf
+        // identity) for it to be able to request an ID token on behalf
         // of the target identity at all — omitting it fails with
         // "invalid_scope: Invalid OAuth scope or ID token audience provided".
         const auth = new GoogleAuth({

@@ -4,7 +4,7 @@
 // Media Integrity Check — Server-Side Container/Format Validation
 // ============================================================================
 // Substantiates: https://secureacademic.com/gdpr-architectural-background/#sec-3-1-1
-// Last verified against production: 2026-08-07
+// Last verified against production: 2026-10-12
 // See CHANGELOG.md (2026-08-07): this module gained a second, precisely
 // bounded follow-up read for "non-fast-start" containers, and — at the
 // deployment level, not in this file's own logic — moved out of the backend

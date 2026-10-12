@@ -2,6 +2,42 @@
 
 Notable updates to this repository — corrections, re-verifications against production, and additions. See [Keeping this in sync](./README.md#keeping-this-in-sync) for why this file exists.
 
+## 2026-10-12
+
+### Changed — processing and Layer 2 moved into Cloud Run workers; the backend lost its read access
+
+**What changed in production.** Until now this repository described the Transcriber and the Proofreader as jobs running inside the main backend, deleting their input in a `finally` block. That is no longer how they run. Each application's AI processing runs in its own Cloud Run worker (europe-west3), under its own identity: the Transcriber worker lets Gemini (and the optional Chirp timestamp pass) read the audio from its `gs://` URI and writes the transcript to the bucket; the Proofreader worker downloads the tokenised text into memory, deletes the object at once, and writes the findings to the bucket. The backend sends a job ID, an object name and settings, and receives a state, an error category and token counts. The result is relayed to the browser as a time-limited download URL, which the worker signs.
+
+**What did not change.** Layers 1 and 3–5 of the deletion guarantee, the hourly sweeper, the signed upload URLs and the isolated media validator work as before.
+
+**Why Layer 2 is described differently now.** The worker deletes the input after writing a content-free final status, on every terminal path of the job. That is not a literal `finally` block, and describing it as one would have been inexact. The file was renamed accordingly (`finally-block-deletion.js` → `worker-end-of-job-deletion.js`) and its description rewritten. A worker instance killed mid-job never reaches the delete; Layers 3–5 exist for that case, as before.
+
+### Fixed — description of the backend's reach (second correction of this kind)
+
+**What was wrong.** After the 2026-08-07 entry, `signed-url-flow/issue-upload-url.js`, `isolated-media-validator/call-from-backend.js` and `infrastructure/media-validator-iam.md` still described the backend as holding a "wide identity" and named the Proofreader's in-backend chunking as the one remaining place where it reads object content. The first was true of the identity at the time; the second is no longer true in production.
+
+**What changed.** The backend's identity has been narrowed to a custom role that can create and delete objects on the upload and result prefixes but cannot read or list them, plus read access to content-free status markers. The prefix restrictions are IAM Conditions evaluated by Cloud Storage. The full map is in the new [`infrastructure/iam-identity-map.md`](./infrastructure/iam-identity-map.md), which also states what the design does not claim: a leaked credential, a backup or a copy of the environment cannot read stored material, but a fully compromised running backend could still relay result URLs, create or delete objects within its prefixes, spend Vertex AI quota or alter the JavaScript served to browsers.
+
+**Two disclosed limits.** First, the backend identity uses a JSON key created before the organisation policy that forbids new service-account keys was enforced; it is the single exception. Second, the old in-backend processing code still exists in the backend's source, behind `TRANSCRIBER_ALLOW_VPS_FALLBACK` and `PROOFREADER_ALLOW_VPS_FALLBACK`. Both are unset in production, and without the remote path the endpoints answer HTTP 503; but a reader of this repository cannot verify our configuration, only the shape of the decision (`fail-closed-modes/`). Even if one of the flags were set, the backend identity would lack the storage permissions that path needs.
+
+**What this did and did not affect.** The corrections to the three files are to how existing behaviour was described. The narrowing of the backend identity and the move to workers are production changes, reflected in version 1.2 of the architecture document ([§2.6](https://secureacademic.com/gdpr-architectural-background/#sec-2-6), [§3.1.2](https://secureacademic.com/gdpr-architectural-background/#sec-3-1-2), [§3.2.2](https://secureacademic.com/gdpr-architectural-background/#sec-3-2), [§5.3](https://secureacademic.com/gdpr-architectural-background/#sec-5-3)).
+
+**How this was found.** During a claim-by-claim review of the architecture document against production, prompted by the move to workers.
+
+### Added
+
+- `infrastructure/iam-identity-map.md` — the least-privilege identity map behind §2.6.
+- `remote-workers/proofreader-validate.js` — the Proofreader's pre-flight check, which now runs in the worker before any credit is deducted (size/character ratio, a hard 4 MiB ceiling, and a check that the content is a JSON array of strings, which used to fail only after the credits had been deducted).
+- `fail-closed-modes/fail-closed-modes.js` — the three operating modes and the 503 guard.
+
+### Re-verified, no code changes
+
+`gdpr-compliance-guard/startup-guard.js`, `security-middleware/helmet-csp-config.js` (the `styleSrc` hash matches all 35 inline `<style>` blocks across the published HTML pages), `security-middleware/rate-limiters.js` (header now states that the limiters shown are those of the applications covered by the architecture document; values unchanged), `abuse-prevention/daily-free-trial-hash.js`, `deletion-lifecycle/orphan-sweeper.js`, `media-integrity-check/mediaIntegrityCheck.js`, `isolated-media-validator/index.js`. `deletion-lifecycle/on-demand-erasure.js` was re-verified too; its header gained a note that the backend performs these deletions without read access.
+
+### Files touched
+
+`deletion-lifecycle/worker-end-of-job-deletion.js` (renamed from `finally-block-deletion.js`, rewritten), `signed-url-flow/issue-upload-url.js`, `isolated-media-validator/call-from-backend.js`, `infrastructure/media-validator-iam.md`, `deletion-lifecycle/on-demand-erasure.js`, `security-middleware/rate-limiters.js` (header), `README.md`, and the verification dates of the files listed above.
+
 ## 2026-08-13
 
 ### Fixed — `security-middleware/helmet-csp-config.js`, `styleSrc` hash drift

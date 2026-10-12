@@ -5,7 +5,7 @@
 // ============================================================================
 // Substantiates: https://secureacademic.com/gdpr-architectural-background/#sec-2-5
 //                https://secureacademic.com/privacy-policy/#sec-4-9-1
-// Last verified against production: 2026-07-23
+// Last verified against production: 2026-10-12
 //
 // WHAT THIS DOES
 // The free daily trial allocation uses IP-address-based abuse prevention,

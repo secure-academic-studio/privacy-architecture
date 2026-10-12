@@ -4,7 +4,7 @@
 // Isolated Media Validator — Cloud Run Service (Request Handler)
 // ============================================================================
 // Substantiates: https://secureacademic.com/gdpr-architectural-background/#sec-3-1-1
-// Last verified against production: 2026-08-07
+// Last verified against production: 2026-10-12
 // See CHANGELOG.md (2026-08-07): this file, ./call-from-backend.js, and
 // ../infrastructure/media-validator-iam.md are new in this pass. They
 // replace the previous framing, under which the Transcriber's backend read

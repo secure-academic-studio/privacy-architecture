@@ -4,7 +4,7 @@
 // Defence Middleware: Helmet, CSP, and Attack-Pattern Filtering
 // ============================================================================
 // Substantiates: https://secureacademic.com/gdpr-architectural-background/#sec-2-3
-// Last verified against production: 2026-08-13
+// Last verified against production: 2026-10-12
 // See CHANGELOG.md (2026-08-13) for a correction applied to `styleSrc` since
 // the previous verification.
 //
