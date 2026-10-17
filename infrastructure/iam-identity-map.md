@@ -1,7 +1,7 @@
 # Least-Privilege Identity Map — Who Can Read What
 
 Substantiates: [§2.6 Least-Privilege Identity Map](https://secureacademic.com/gdpr-architectural-background/#sec-2-6)
-Last verified against production: 2026-10-12
+Last verified against production: 2026-10-17
 
 ## What this is
 
@@ -30,7 +30,9 @@ The prefix restrictions are IAM Conditions, evaluated by Cloud Storage at reques
 
 - The workers, the validator and the invoker identities run as identities attached to their Cloud Run services. They hold no keys.
 - An enforced organisation policy, `iam.managed.disableServiceAccountKeyCreation`, blocks the creation of new service-account keys.
-- The backend identity is the single exception. It uses a JSON key that was created before that policy was enforced, and it is stored as a deployment secret. This is why the table says "JSON key held as a deployment secret" and not "no keys".
+- The backend identity is the single exception. It uses a JSON key, stored as a deployment secret. This is why the table says "JSON key held as a deployment secret" and not "no keys".
+- The current key was issued on 2026-10-17, after the policy was enforced. To make that possible, the policy was suspended for the one project concerned for about four minutes (20:47–20:51 CEST) and restored immediately afterwards; no other project or identity was affected. The previous key, created before the policy was enforced, was disabled on 2026-10-17 and deleted on 2026-10-17.
+- This is a replacement of the key, not the removal of the need for one: the backend still holds a JSON key.
 
 ## Audit logging
 

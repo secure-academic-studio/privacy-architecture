@@ -2,6 +2,20 @@
 
 Notable updates to this repository — corrections, re-verifications against production, and additions. See [Keeping this in sync](./README.md#keeping-this-in-sync) for why this file exists.
 
+## 2026-10-17
+
+### Changed — the backend's service-account key was replaced
+
+**What changed in production.** The backend identity's JSON key was rotated. A new key was issued on 2026-10-17, replacing the one created on 2026-05-31, which pre-dated the organisation policy `iam.managed.disableServiceAccountKeyCreation`. The old key was disabled the same day and deleted on 2026-10-17. The new key is held as a deployment secret, as before.
+
+**How the policy was handled, and its cost.** The policy forbids creating new keys, so issuing one required suspending it. This was done once, for the single project concerned (a project-level override, not an organisation-wide change), from 20:47 to 20:51 CEST on 2026-10-17, and the project was set back to inheriting the organisation policy immediately afterwards. During those minutes the policy did not apply to that project. The policy is enforced again; the other identities still hold no keys.
+
+**What this supersedes.** The 2026-10-12 entry below describes the backend key as one "created before the organisation policy ... was enforced". That sentence was accurate when written and is left as it stands; it no longer describes production. [`infrastructure/iam-identity-map.md`](./infrastructure/iam-identity-map.md) and version 1.3 of the architecture document ([§2.6](https://secureacademic.com/gdpr-architectural-background/#sec-2-6)) now state the current position.
+
+**What did not change.** The backend identity's permissions (create and delete on the upload and result prefixes, no read, no list), the workers, the validator and the invoker identities, and the application code are as before. This is a replacement of a credential, not the removal of the need for one: the backend still holds a JSON key.
+
+**Files touched.** `infrastructure/iam-identity-map.md`, `infrastructure/media-validator-iam.md` (a pointer only), `README.md` (two descriptions), and this file. The `Last verified against production` date was updated on the first two.
+
 ## 2026-10-12
 
 ### Changed — processing and Layer 2 moved into Cloud Run workers; the backend lost its read access

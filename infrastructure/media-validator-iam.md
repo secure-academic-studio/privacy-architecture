@@ -1,7 +1,7 @@
 # Isolated Media Validator — IAM & Service Identity
 
 Substantiates: [§3.1 The Signed URL Architecture](https://secureacademic.com/gdpr-architectural-background/#sec-3-1) / [§3.1.1 Media Integrity Validation](https://secureacademic.com/gdpr-architectural-background/#sec-3-1-1)
-Last verified against production: 2026-10-12
+Last verified against production: 2026-10-17
 
 ## What this is
 
@@ -14,7 +14,7 @@ The [architecture document](https://secureacademic.com/gdpr-architectural-backgr
 | Service account | `sas-validator-runtime@YOUR_PROJECT_ID.iam.gserviceaccount.com` | `sas-validator-caller@YOUR_PROJECT_ID.iam.gserviceaccount.com` |
 | Attached to | The Cloud Run revision itself (`sas-transcriber-media-validator`) | Nothing — exists only to be impersonated |
 | Grants | Read-only, IAM-Condition-scoped (see below) | `roles/run.invoker` on this one Cloud Run service, nothing else (one of three such invoker identities; the other two serve the workers) |
-| Has a static key? | No | No — organisation policy `constraints/iam.managed.disableServiceAccountKeyCreation` forbids creating new service-account keys at all |
+| Has a static key? | No | No — organisation policy `constraints/iam.managed.disableServiceAccountKeyCreation` forbids creating new service-account keys at all (the single, documented suspension for the backend's own key is described in [`iam-identity-map.md`](./iam-identity-map.md); it did not touch this identity) |
 | Used by | The validator service, via Application Default Credentials | The backend, via short-lived impersonation (see below) |
 
 Two separate identities, not one, because they answer two different questions: "what can read the audio bytes" (the runtime identity — nothing outside `pending/`) and "what can trigger a validation run" (the caller identity — nothing beyond invoking this one service). Collapsing them into a single identity would couple two properties that are more useful kept independently falsifiable.
@@ -41,7 +41,7 @@ This is a genuine, evaluated-at-request-time restriction, not a naming conventio
 
 ## How the backend calls this without a static key
 
-The organisation-wide policy that forbids service-account key creation (see the table above) applies here too, and is not worked around: the backend's own identity — the one behind its other Google Cloud / AI calls, with the permissions listed in [`iam-identity-map.md`](./iam-identity-map.md) — is granted `roles/iam.serviceAccountTokenCreator` on the caller identity (and on the two other invoker identities used for the workers), at resource level and nowhere else. At call time, the backend impersonates the caller identity to obtain a short-lived (five-minute) ID token, and that token — not the backend's own credentials — is what the validator's Cloud Run authentication layer actually checks. See [`../isolated-media-validator/call-from-backend.js`](../isolated-media-validator/call-from-backend.js) for the code.
+The organisation-wide policy that forbids service-account key creation (see the table above) applies here too, and is not worked around for this identity (the one temporary suspension, for the backend's own key, is recorded in [`iam-identity-map.md`](./iam-identity-map.md)): the backend's own identity — the one behind its other Google Cloud / AI calls, with the permissions listed in [`iam-identity-map.md`](./iam-identity-map.md) — is granted `roles/iam.serviceAccountTokenCreator` on the caller identity (and on the two other invoker identities used for the workers), at resource level and nowhere else. At call time, the backend impersonates the caller identity to obtain a short-lived (five-minute) ID token, and that token — not the backend's own credentials — is what the validator's Cloud Run authentication layer actually checks. See [`../isolated-media-validator/call-from-backend.js`](../isolated-media-validator/call-from-backend.js) for the code.
 
 ## What's a placeholder here, and why
 
